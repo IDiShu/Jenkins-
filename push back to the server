@@ -1,0 +1,63 @@
+pipeline {
+    agent { label 'jenkins' }
+
+    environment {
+        GIT_SSH_KEY_PRIVATE = credentials('your_ssh-git')
+    }
+
+    stages {
+        stage('Docker Login') {
+            steps {
+                sh 'docker login -u your_login -p passwd'
+            }
+        }
+        stage('Docker version') {
+            steps {
+                sh 'docker version'
+            }
+        }
+        stage('Delete workspace before build starts') {
+            steps {
+                echo 'Deleting workspace'
+                deleteDir()
+            }
+        }
+        stage('Checkout') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'your_ssh-git', keyFileVariable: 'GIT_SSH_KEY_PRIVATE')]) {
+                    git branch: 'master',
+                        credentialsId: 'your_ssh-git',
+                        url: 'your_url'
+                }
+            }
+        }
+        stage('Test') {
+            steps {
+                sh "ls -la "
+                sh "pwd"
+            }
+        }
+        stage('Build docker image') {
+            steps {
+                dir('backend') {
+                sh 'docker build -t your_login/your_url .'
+            }
+        }
+    }
+        stage('Push docker image to DockerHub') {
+            steps {
+                sh "docker push your_login/your_url"
+            }
+        }
+        stage('Delete docker image locally') {
+            steps {
+                sh 'docker rmi your_login/your_url'
+            }
+        }
+        stage('Docker Logout') {
+            steps {
+                sh 'docker logout'
+            }
+        }
+    }
+}
