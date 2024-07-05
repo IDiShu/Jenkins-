@@ -1,0 +1,57 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Connect') {
+            steps {
+                sh "ssh -o StrictHostKeyChecking=no you_ip_server"
+            }
+        }
+        
+        stage('Docker Login') {
+            steps {
+                sh 'ssh you_ip_server docker login -u your_login -p your_passwd'
+            }
+        }
+        
+        stage('Вытягиваем последний образ из Docker Hub') {
+            steps {
+                sh "ssh you_ip_server docker pull your_container_name"
+            }
+        }
+        
+        stage('Останавливаем и удаляем предыдущий контейнер') {
+            steps {
+                sh """
+                    if ssh you_ip_server docker ps -a | grep back; then
+                        ssh you_ip_server docker stop back
+                        ssh you_ip_server docker rm back
+                    fi
+                """
+            }
+        }
+        
+        stage('Удаляем образы без тегов') {
+            steps {
+                sh 'ssh you_ip_server "docker images | grep \'<none>\' | awk \'{{print $3}}\' | xargs docker rmi || true"'
+            }
+        }
+        
+        stage('Запускаем контейнер с последним образом на порту 4000') {
+            steps {
+                sh "ssh you_ip_server docker run -d -p 4000:4000 -v /home/avtomir:/home/avtomir -e DB_HOST=your_ip_server -e TZ=Europe/Kiev -e NODE_ENV=production -e CLIENT_URL=avto-mir.pro --name back your_container_name"
+            }
+        }
+        
+        stage('Проверяем работающие контейнеры') {
+            steps {
+                sh "ssh you_ip_server docker ps -a"
+            }
+        }
+        stage('Docker Logout') {
+            steps {
+                sh 'ssh you_ip_server docker logout'
+            }
+        }
+    }
+}
